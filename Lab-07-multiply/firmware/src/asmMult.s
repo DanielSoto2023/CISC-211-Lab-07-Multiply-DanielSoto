@@ -14,7 +14,7 @@
 .type nameStr,%gnu_unique_object
     
 /*** STUDENTS: Change the next line to your name!  **/
-nameStr: .asciz "Inigo Montoya"  
+nameStr: .asciz "Daniel Soto"  
 
 .align   /* realign so that next mem allocations are on word boundaries */
  
@@ -88,6 +88,191 @@ asmMult:
      * Use it to test the C test code */
     
     /*** STUDENTS: Place your code BELOW this line!!! **************/
+    LDR R6,=0 /*Setting the values to 0*/
+    LDR r7,=a_Multiplicand
+    LDR r8,=b_Multiplier
+    STR r6,[r7]
+    STR r6,[r8]
+    LDR r7,=rng_Error
+    LDR r8,=a_Sign
+    STR r6,[r7]
+    STR r6,[r8]
+    LDR r7,=b_Sign
+    LDR r8,=prod_Is_Neg
+    STR r6,[r7]
+    STR r6,[r8]
+    LDR r7,=a_Abs
+    LDR r8,=b_Abs
+    STR r6,[r7]
+    STR r6,[r8]
+    LDR r7,=init_Product
+    LDR r8,=final_Product
+    STR r6,[r7]
+    STR r6,[r8]
+    
+    LDR r7,=a_Multiplicand
+    LDR r8,=b_Multiplier
+    STR r0,[r7]
+    STR r1,[r8]
+    
+    
+    /*Redundant reversing of two's compliment to check if it exceeds the 16 bit limit
+    for input because I can't think of another way*/
+    BAL signBit
+    errorCheck:
+    LDR r10,=1
+    LDR r3, =32767 /*Check error*/
+    LDR r8,=32768
+    CMP r10,r5
+    BEQ errorANeg /* Branches to convert 2's comp to normal to check if larger than 16b*/
+    LDR r1,=a_Multiplicand
+    LDR r1,[r1]
+    CMP r1,r3
+    BGT errorcase
+    afterErrorANeg:
+    CMP r10,r6
+    BEQ errorBNeg  /* Branches to convert 2's comp to normal to check if larger than 16b*/
+    LDR r1,=b_Multiplier
+    LDR r1,[r1]
+    CMP r1,r3
+    BGT errorcase
+    afterErrorBNeg:
+    BAL afterErrorCheck
+    
+    errorANeg:
+    LDR r1,=a_Multiplicand
+    LDR r1,[r1]
+    NEG r1,r1
+    CMP r1,r8
+    BGT errorcase
+    BAL afterErrorANeg
+    
+    errorBNeg:
+    LDR r1,=b_Multiplier
+    LDR r1,[r1]
+    NEG r1,r1
+    CMP r1,r8
+    BGT errorcase
+    BAL afterErrorBNeg
+    
+    
+    signBit:
+    LDR r3,=0x80000000 /*Extrect the 15th bit (Sign bit), Since the input is sign extended
+    when I thought the input would be 0x0000FFFF as the maximum 2's comp negative number*/
+    LDR r1,=a_Multiplicand
+    LDR r1,[r1]
+    LDR r2,=b_Multiplier
+    LDR r2,[r2]
+    AND r5,r1,r3 /*A*/
+    AND r6,r2,r3 /*B*/
+    
+    LSR r5,r5,31 /* to get the sign bit to the LSB then store the sign bit*/
+    LSR r6,r6,31
+    BAL errorCheck
+    afterErrorCheck:
+    LDR r3,=a_Sign
+    LDR r4,=b_Sign
+    STR r5,[r3]
+    STR r6,[r4]
+    
+    EOR r10,r5,r6
+    LDR r3,=prod_Is_Neg
+    STR r10,[r3] /* Check if result negative or not*/
+    
+    /*R5 = A sign, R6 = B_Sign*/
+    LDR r1,=1 /*Check sign bit then do absolute value if its negative*/
+    CMP r5,r1
+    BEQ AbsoluteA
+    LDR r1,=a_Multiplicand
+    LDR r1,[r1]
+    LDR r2,=a_Abs
+    STR r1,[r2]
+    PastAbsoluteA:
+    LDR r1,=1
+    CMP r6,r1
+    BEQ AbsoluteB
+    LDR r1,=b_Multiplier
+    LDR r1,[r1]
+    LDR r2,=b_Abs
+    STR r1,[r2]
+    PastAbsoluteB:
+    BAL setup
+    
+    AbsoluteA:/*Reverses Two Compliment*/
+    LDR r1,=a_Multiplicand
+    LDR r1,[r1]
+    NEG r1,r1
+    LDR r2,=a_Abs
+    STR r1,[r2]
+    BAL PastAbsoluteA
+    
+    AbsoluteB: /*Same as above*/
+    LDR r1,=b_Multiplier
+    LDR r1,[r1]
+    NEG r1,r1
+    LDR r2,=b_Abs
+    STR r1,[r2]
+    BAL PastAbsoluteB
+   
+    setup: /*Setup*/
+    LDR r3,=a_Abs
+    LDR r4,=b_Abs
+    LDR r0,[r3] /*Initilization*/
+    LDR r1,[r4]
+    LDR r9,=1
+    LDR r10,=0
+    LDR r11, =0x00000001
+    LDR r3,=0
+    
+    loop:
+    CMP r1,r10 /*Check if multiplier is 0*/
+    BEQ beforedone
+    AND r4,r11,r1 /*Mask out every bit except LSB then if it is not 0 add to result*/
+    CMP r4,r10
+    BEQ shift
+    ADD r3,r3,r0
+    
+    shift: /*Shift plier and cand*/
+    LSR r1,r1,1
+    LSL r0,r0,1
+    BAL loop
+    
+    beforedone: /*Formatting the output by putting it into respective adresses and registers*/
+    LDR r10,=init_Product
+    STR r3,[r10]
+    LDR r11,=prod_Is_Neg
+    LDR r11,[r11]
+    LDR r10,=1
+    CMP r11,r10
+    BEQ compliment
+    LDR r11,=final_Product
+    STR r3,[r11]
+    MOV r0,r3
+    BAL done
+    
+    compliment: /*Take the compliment if the product is negative*/
+    NEG r3,r3
+    LDR r11,=final_Product
+    STR r3,[r11]
+    MOV r0,r3
+    MOV r3,0 /*Check if final product is zero*/
+    CMP r0,r3
+    BEQ zeroCheck
+    BAL done
+    
+    zeroCheck: /*If the final product is 0 then change prod is neg to 0*/
+    LDR r1,=prod_Is_Neg
+    LDR r2,=0
+    STR r2,[r1]
+    BAL done
+    
+    errorcase: /*Error case*/
+    LDR r5,=rng_Error
+    LDR r6,=1
+    LDR r0,=0
+    STR r6,[r5]
+    BAL done
+     
     
     
     /*** STUDENTS: Place your code ABOVE this line!!! **************/
